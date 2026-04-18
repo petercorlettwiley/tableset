@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Host {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  events    Event[]
+
+  @@map("hosts")
+}
+
+model Event {
+  id            String          @id @default(uuid())
+  hostId        String          @map("host_id")
+  title         String
+  description   String?
+  startsAt      DateTime        @map("starts_at")
+  location      String
+  showGuestList Boolean         @default(false) @map("show_guest_list")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  host          Host            @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  guests        Guest[]
+  needsItems    NeedsListItem[]
+  blasts        Blast[]
+
+  @@map("events")
+}
+
+model Guest {
+  id          String     @id @default(uuid())
+  eventId     String     @map("event_id")
+  name        String
+  email       String?
+  phone       String?
+  inviteToken String     @unique @default(uuid()) @map("invite_token")
+  rsvpStatus  RsvpStatus @default(pending) @map("rsvp_status")
+  rsvpAt      DateTime?  @map("rsvp_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  event       Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  claims      Claim[]
+
+  @@map("guests")
+}
+
+model NeedsListItem {
+  id        String   @id @default(uuid())
+  eventId   String   @map("event_id")
+  label     String
+  category  String
+  isOpen    Boolean  @default(true) @map("is_open")
+  createdAt DateTime @default(now()) @map("created_at")
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  claim     Claim?
+
+  @@map("needs_list_items")
+}
+
+model Claim {
+  id                  String        @id @default(uuid())
+  needsListItemId     String        @unique @map("needs_list_item_id")
+  guestId             String        @map("guest_id")
+  confirmedRecipeName String?       @map("confirmed_recipe_name")
+  confirmedRecipeUrl  String?       @map("confirmed_recipe_url")
+  claimedAt           DateTime      @default(now()) @map("claimed_at")
+  confirmedAt         DateTime?     @map("confirmed_at")
+  needsListItem       NeedsListItem @relation(fields: [needsListItemId], references: [id], onDelete: Cascade)
+  guest               Guest         @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  @@map("claims")
+}
+
+model Blast {
+  id              String          @id @default(uuid())
+  eventId         String          @map("event_id")
+  message         String
+  channel         BlastChannel
+  recipientFilter RecipientFilter
+  sentAt          DateTime        @default(now()) @map("sent_at")
+  event           Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("blasts")
+}
+
+enum RsvpStatus {
+  pending
+  going
+  maybe
+  declined
+}
+
+enum BlastChannel {
+  sms
+  email
+  both
+}
+
+enum RecipientFilter {
+  all
+  going_only
+  unclaimed_only
+}
